@@ -30,7 +30,7 @@ if img_b64:
 else:
     bg_css = "background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);"
 
-# 3. تطبيق التنسيق والتصميم المخصص (تمييز خانة البحث وجدول البيانات)
+# 3. تطبيق التنسيق والتصميم المخصص (حاوية زرقاء فاتحة لجدول البيانات)
 custom_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -91,15 +91,23 @@ div[data-testid="stSelectbox"] > div {
     border: 1px solid #94a3b8 !important;
 }
 
-/* حاوية مخصصة بلون ناصع وتباين عالي لعرض محتوى الإكسيل لقراءة واضحة */
+/* حاوية جدول البيانات باللون الأزرق الفاتح المريح */
 .table-wrapper {
+    background: linear-gradient(180deg, #f0f7ff 0%%, #e6f0fa 100%%);
+    border-radius: 16px;
+    padding: 18px;
+    border: 1.5px solid #bfdbfe;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+    margin-top: 12px;
+    margin-bottom: 22px;
+}
+
+/* تحسين مظهر الجدول نفسه ليتكامل مع الخلفية الزرقاء */
+[data-testid="stDataFrame"] {
+    border-radius: 10px;
+    overflow: hidden;
     background-color: #ffffff;
-    border-radius: 14px;
-    padding: 16px;
-    border: 1px solid #cbd5e1;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    margin-top: 10px;
-    margin-bottom: 20px;
+    border: 1px solid #dbeafe;
 }
 
 /* تنسيق أزرار التصدير والتسجيل */
@@ -250,7 +258,7 @@ with tab_search:
 
     st.markdown(f"**عدد السجلات المطابقة:** `{len(filtered_df):,}`")
 
-    # تغليف الجدول بحاوية متباينة بيضاء عالية الوضوح لسهولة القراءة
+    # الحاوية باللون الأزرق الفاتح المريح
     st.markdown("<div class='table-wrapper'>", unsafe_allow_html=True)
     st.dataframe(filtered_df, use_container_width=True, height=480)
     st.markdown("</div>", unsafe_allow_html=True)
