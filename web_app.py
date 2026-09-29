@@ -12,6 +12,7 @@ st.set_page_config(
 )
 
 # 2. قراءة صورة الخلفية وتحويلها إلى Base64
+# 2. قراءة صورة الخلفية وتحويلها إلى Base64
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         try:
@@ -21,11 +22,12 @@ def get_base64_image(image_path):
             return ""
     return ""
 
-img_b64 = get_base64_image("background.jpg")
+# قراءة الملف background.png
+img_b64 = get_base64_image("background.png")
 
 if img_b64:
     bg_css = """
-        background-image: linear-gradient(rgba(240, 244, 248, 0.90), rgba(240, 244, 248, 0.90)), url("data:image/jpeg;base64,%s");
+        background-image: linear-gradient(rgba(240, 244, 248, 0.90), rgba(240, 244, 248, 0.90)), url("data:image/png;base64,%s");
     """ % img_b64
 else:
     bg_css = "background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);"
