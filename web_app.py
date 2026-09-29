@@ -4,6 +4,19 @@ import io
 
 # 1. إعدادات الصفحة والمظهر
 st.set_page_config(
+    # إخفاء عناصر التحكم الخاصة بـ Streamlit لتظهر المنصة كتطبيق رسمي
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display:none;}
+    [data-testid="stToolbar"] {visibility: hidden; display: none;}
+    [data-testid="stDecoration"] {display: none;}
+    [data-testid="stStatusWidget"] {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     page_title="منصة تدبير واستعلام الموارد البشرية والمؤسسات",
     page_icon="🏫",
     layout="wide"
