@@ -12,7 +12,6 @@ st.set_page_config(
 )
 
 # 2. قراءة صورة الخلفية وتحويلها إلى Base64
-# 2. قراءة صورة الخلفية وتحويلها إلى Base64
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         try:
@@ -22,7 +21,6 @@ def get_base64_image(image_path):
             return ""
     return ""
 
-# قراءة الملف background.png
 img_b64 = get_base64_image("background.png")
 
 if img_b64:
@@ -32,7 +30,7 @@ if img_b64:
 else:
     bg_css = "background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);"
 
-# 3. تطبيق التنسيق والتصميم دون أي تعارض مع بايثون
+# 3. تطبيق التنسيق والتصميم المخصص (تمييز خانة البحث وجدول البيانات)
 custom_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -52,14 +50,16 @@ header {visibility: hidden;}
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-[data-testid="stForm"], .css-card {
-    background: rgba(255, 255, 255, 0.96);
+/* تنسيق بطاقة تسجيل الدخول */
+[data-testid="stForm"] {
+    background: rgba(255, 255, 255, 0.98);
     border-radius: 16px;
     padding: 28px;
     box-shadow: 0 10px 25px rgba(0, 35, 75, 0.08);
     border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
+/* بطاقات المؤشرات (Metrics) */
 [data-testid="metric-container"] {
     background: #ffffff;
     border: 1px solid #e2e8f0;
@@ -69,6 +69,40 @@ header {visibility: hidden;}
     border-right: 5px solid #1e40af;
 }
 
+/* تمييز وتخصيص خانة البحث والتصفية */
+div[data-testid="stTextInput"] input {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 2px solid #2563eb !important;
+    border-radius: 10px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 3px 8px rgba(37, 99, 235, 0.12) !important;
+}
+
+div[data-testid="stTextInput"] input:focus {
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
+}
+
+div[data-testid="stSelectbox"] > div {
+    border-radius: 10px !important;
+    border: 1px solid #94a3b8 !important;
+}
+
+/* حاوية مخصصة بلون ناصع وتباين عالي لعرض محتوى الإكسيل لقراءة واضحة */
+.table-wrapper {
+    background-color: #ffffff;
+    border-radius: 14px;
+    padding: 16px;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+/* تنسيق أزرار التصدير والتسجيل */
 .stButton > button, .stDownloadButton > button {
     border-radius: 8px;
     font-weight: 600;
@@ -193,11 +227,11 @@ st.markdown("<br>", unsafe_allow_html=True)
 # التبويبات الرئيسية
 tab_search, tab_stats = st.tabs(["🔍 البحث والاستعلام المتقدم", "📊 إحصائيات وتوزيع المؤسسات"])
 
-# التبويب 1: البحث وتصدير النتائج
+# التبويب 1: البحث وعرض النتائج
 with tab_search:
-    col_input, col_etab_filter = st.columns([2, 1])
+    col_input, col_etab_filter = st.columns([2.2, 1])
     with col_input:
-        search_query = st.text_input("🔎 بحث سريع (الاسم، رقم التأجير، التخصص، المهمة...):", placeholder="اكتب كلمة البحث هنا...")
+        search_query = st.text_input("🔎 خانة البحث السريع (الاسم، رقم التأجير، الإطار، المهمة...):", placeholder="اكتب للبحث الفوري في جميع الحقول...")
     
     with col_etab_filter:
         if etab_col:
@@ -215,7 +249,11 @@ with tab_search:
         filtered_df = filtered_df[filtered_df[etab_col] == selected_etab]
 
     st.markdown(f"**عدد السجلات المطابقة:** `{len(filtered_df):,}`")
-    st.dataframe(filtered_df, use_container_width=True, height=450)
+
+    # تغليف الجدول بحاوية متباينة بيضاء عالية الوضوح لسهولة القراءة
+    st.markdown("<div class='table-wrapper'>", unsafe_allow_html=True)
+    st.dataframe(filtered_df, use_container_width=True, height=480)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     # زر استخراج النتائج
     output = io.BytesIO()
@@ -239,7 +277,9 @@ with tab_stats:
 
         c1, c2 = st.columns([1, 1])
         with c1:
-            st.dataframe(stats_df, use_container_width=True, height=400)
+            st.markdown("<div class='table-wrapper'>", unsafe_allow_html=True)
+            st.dataframe(stats_df, use_container_width=True, height=420)
+            st.markdown("</div>", unsafe_allow_html=True)
             
             stats_output = io.BytesIO()
             with pd.ExcelWriter(stats_output, engine="openpyxl") as writer:
