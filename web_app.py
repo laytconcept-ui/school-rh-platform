@@ -2,9 +2,14 @@ import streamlit as st
 import pandas as pd
 import io
 
-# 1. إعدادات الصفحة والمظهر
+# 1. إعدادات الصفحة
 st.set_page_config(
-    # إخفاء عناصر التحكم الخاصة بـ Streamlit لتظهر المنصة كتطبيق رسمي
+    page_title="منصة تدبير واستعلام الموارد البشرية والمؤسسات",
+    page_icon="🏫",
+    layout="wide"
+)
+
+# 2. إخفاء أشرطة التحكم وشعارات Streamlit لتبدو كمنصة مستقلة
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
@@ -17,12 +22,8 @@ hide_streamlit_style = """
     </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-    page_title="منصة تدبير واستعلام الموارد البشرية والمؤسسات",
-    page_icon="🏫",
-    layout="wide"
-)
 
-# 2. نظام مصادقة وتسجيل دخول بسيط وآمن
+# 3. نظام المصادقة وتسجيل الدخول
 USERS = {
     "admin": "admin@2026",
     "inspecteur": "insp@2026",
@@ -32,10 +33,8 @@ USERS = {
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-
 def login_form():
-    st.markdown("<h2 style='text-align: center; color: #1e40af;'>🏫 تسجيل الدخول للمنصة التربوية</h2>",
-                unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #1e40af;'>🏫 تسجيل الدخول للمنصة التربوية</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
@@ -50,7 +49,6 @@ def login_form():
                 else:
                     st.error("اسم المستخدم أو كلمة المرور غير صحيحة.")
 
-
 if not st.session_state.authenticated:
     login_form()
     st.stop()
@@ -63,44 +61,39 @@ with st.sidebar:
     if st.button("تسجيل الخروج 🚪"):
         st.session_state.authenticated = False
         st.rerun()
-
+    
     st.divider()
     st.header("إدارة البيانات")
     uploaded_file = st.file_uploader("رفع ملف Excel جديد (RH):", type=["xlsx", "xls"])
 
-
-# تحميل البيانات (إما من الملف المرفوع أو ملف افتراضي)
+# تحميل وقراءة البيانات
 @st.cache_data
 def get_data(file_source):
     if file_source is not None:
         df = pd.read_excel(file_source)
     else:
-        # مسار الملف الافتراضي إن وجد على السيرفر
         try:
             df = pd.read_excel("RH2026.xlsx")
         except Exception:
             return pd.DataFrame()
     return df.fillna("").astype(str)
 
-
 df = get_data(uploaded_file)
 
-st.markdown(
-    "<h1 style='color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;'>🏫 منصة تدبير واستعلام الموارد البشرية والمؤسسات التعليمية</h1>",
-    unsafe_allow_html=True)
+st.markdown("<h1 style='color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;'>🏫 منصة تدبير واستعلام الموارد البشرية والمؤسسات التعليمية</h1>", unsafe_allow_html=True)
 
 if df.empty:
     st.info("👋 مرحباً بك! يرجى رفع ملف الإكسيل من القائمة الجانبية (Sidebar) للبدء في الاستعلام.")
     st.stop()
 
-# الكشف عن عمود المؤسسة ETAB
+# البحث عن عمود المؤسسة ETAB
 etab_col = None
 for col in df.columns:
     if str(col).strip().upper() == "ETAB":
         etab_col = col
         break
 
-# 3. بطاقات المؤشرات السريعة (KPIs)
+# 4. بطاقات المؤشرات السريعة (KPIs)
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="👥 إجمالي السجلات", value=f"{len(df):,}")
@@ -112,15 +105,15 @@ with m3:
 
 st.divider()
 
-# 4. التبويبات الرئيسية (البحث والاستعلام / إحصائيات المؤسسات)
+# 5. التبويبات الرئيسية
 tab_search, tab_stats = st.tabs(["🔍 البحث والاستعلام", "📊 إحصائيات المؤسسات (ETAB)"])
 
-# ===== التبويب 1: البحث المتقدم وتصدير النتائج =====
+# ===== التبويب 1: البحث وتصدير النتائج =====
 with tab_search:
     col_input, col_etab_filter = st.columns([2, 1])
     with col_input:
         search_query = st.text_input("بحث نصي (الاسم الكامل، رقم التأجير، التخصص...):", placeholder="اكتب للبحث...")
-
+    
     with col_etab_filter:
         if etab_col:
             etab_list = ["الكل"] + sorted([e for e in df[etab_col].unique() if e])
@@ -128,11 +121,10 @@ with tab_search:
         else:
             selected_etab = "الكل"
 
-    # تصفية البيانات
+    # تطبيق التصفية
     filtered_df = df.copy()
     if search_query:
-        mask = filtered_df.apply(lambda row: row.str.lower().str.contains(search_query.lower(), regex=False).any(),
-                                 axis=1)
+        mask = filtered_df.apply(lambda row: row.str.lower().str.contains(search_query.lower(), regex=False).any(), axis=1)
         filtered_df = filtered_df[mask]
 
     if selected_etab != "الكل" and etab_col:
@@ -146,7 +138,7 @@ with tab_search:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         filtered_df.to_excel(writer, index=False, sheet_name="Résultats")
-
+    
     st.download_button(
         label="💾 تصدير النتائج المفلترة إلى Excel",
         data=output.getvalue(),
@@ -154,23 +146,22 @@ with tab_search:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# ===== التبويب 2: إحصائيات وتوزيع الموارد البشرية =====
+# ===== التبويب 2: إحصائيات المؤسسات =====
 with tab_stats:
     if etab_col:
         st.subheader("📊 توزيع الأساتذة والموظفين حسب المؤسسة")
-
+        
         stats_df = df[etab_col].value_counts().reset_index()
         stats_df.columns = ["المؤسسة (ETAB)", "عدد العاملين"]
 
         col_tbl, col_chart = st.columns([1, 1])
         with col_tbl:
             st.dataframe(stats_df, use_container_width=True, height=400)
-
-            # تصدير الإحصائيات
+            
             stats_output = io.BytesIO()
             with pd.ExcelWriter(stats_output, engine="openpyxl") as writer:
                 stats_df.to_excel(writer, index=False, sheet_name="Statistiques_ETAB")
-
+            
             st.download_button(
                 label="📑 تصدير تقرير المؤسسات إلى Excel",
                 data=stats_output.getvalue(),
