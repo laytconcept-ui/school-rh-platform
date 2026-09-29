@@ -68,15 +68,23 @@ with st.sidebar:
 
 # تحميل وقراءة البيانات
 @st.cache_data
+# تحميل وقراءة البيانات بذكاء
+@st.cache_data
 def get_data(file_source):
     if file_source is not None:
-        df = pd.read_excel(file_source)
-    else:
-        try:
-            df = pd.read_excel("RH2026.xlsx")
-        except Exception:
-            return pd.DataFrame()
-    return df.fillna("").astype(str)
+        return pd.read_excel(file_source).fillna("").astype(str)
+    
+    # البحث التلقائي عن أي ملف إكسيل داخل المستودع
+    import os
+    for fname in os.listdir("."):
+        if fname.lower().endswith((".xlsx", ".xls")) and not fname.startswith("~$"):
+            try:
+                df = pd.read_excel(fname)
+                return df.fillna("").astype(str)
+            except Exception as e:
+                st.error(f"خطأ في قراءة ملف {fname}: {e}")
+                
+    return pd.DataFrame()
 
 df = get_data(uploaded_file)
 
