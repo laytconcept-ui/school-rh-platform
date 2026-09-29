@@ -2,94 +2,90 @@ import streamlit as st
 import pandas as pd
 import io
 import os
+import base64
 
-# 1. إعداد الصفحة
+# 1. إعدادات الصفحة
 st.set_page_config(
     page_title="المنصة الرقمية لتدبير واستعلام الموارد البشرية",
-    page_icon="🇲🇦",
+    page_icon="🏫",
     layout="wide"
 )
 
-# 2. تخصيص التصميم، الألوان، الخلفية، وإخفاء أشرطة التحكم
-custom_css = """
-import base64
-
-# دالة لقراءة صورة الخلفية المرفوعة
+# 2. قراءة صورة الخلفية وتحويلها إلى Base64
 def get_base64_image(image_path):
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except Exception:
-        return ""
+    if os.path.exists(image_path):
+        try:
+            with open(image_path, "rb") as img_file:
+                return base64.b64encode(img_file.read()).decode()
+        except Exception:
+            return ""
+    return ""
 
 img_b64 = get_base64_image("background.jpg")
 
 if img_b64:
-    bg_rule = f'background-image: linear-gradient(rgba(240, 244, 248, 0.90), rgba(240, 244, 248, 0.90)), url("data:image/jpeg;base64,{img_b64}");'
+    bg_css = """
+        background-image: linear-gradient(rgba(240, 244, 248, 0.90), rgba(240, 244, 248, 0.90)), url("data:image/jpeg;base64,%s");
+    """ % img_b64
 else:
-    bg_rule = 'background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);'
+    bg_css = "background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);"
 
-custom_css = f"""
+# 3. تطبيق التنسيق والتصميم دون أي تعارض مع بايثون
+custom_style = """
 <style>
-/* إخفاء شريط أدوات وأزرار التحكم الرسمية لـ Streamlit */
-#MainMenu {{visibility: hidden;}}
-footer {{visibility: hidden;}}
-header {{visibility: hidden;}}
-.stDeployButton {{display:none;}}
-[data-testid="stToolbar"] {{visibility: hidden; display: none;}}
-[data-testid="stDecoration"] {{display: none;}}
-[data-testid="stStatusWidget"] {{visibility: hidden;}}
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stDeployButton {display:none;}
+[data-testid="stToolbar"] {visibility: hidden; display: none;}
+[data-testid="stDecoration"] {display: none;}
+[data-testid="stStatusWidget"] {visibility: hidden;}
 
-/* خلفية الصفحة */
-.stApp {{
-    {bg_rule}
+.stApp {
+    %s
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
     direction: rtl;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}}
+}
 
-/* تنسيق بطاقة تسجيل الدخول وحاويات العرض */
-[data-testid="stForm"], .css-card {{
+[data-testid="stForm"], .css-card {
     background: rgba(255, 255, 255, 0.96);
     border-radius: 16px;
     padding: 28px;
     box-shadow: 0 10px 25px rgba(0, 35, 75, 0.08);
     border: 1px solid rgba(226, 232, 240, 0.8);
-}}
+}
 
-/* بطاقات المؤشرات (Metrics) */
-[data-testid="metric-container"] {{
+[data-testid="metric-container"] {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     padding: 14px 20px;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     border-right: 5px solid #1e40af;
-}}
+}
 
-/* تحسين شكل الأزرار */
-.stButton > button, .stDownloadButton > button {{
+.stButton > button, .stDownloadButton > button {
     border-radius: 8px;
     font-weight: 600;
     transition: all 0.2s ease-in-out;
-}}
-.stButton > button:hover, .stDownloadButton > button:hover {{
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
-}}
+}
 
-/* محاذاة الجداول وحقول الإدخال للغة العربية */
-input, select {{
+input, select {
     text-align: right !important;
-}}
+}
 </style>
-"""
+""" % bg_css
 
-st.markdown(custom_css, unsafe_allow_html=True)
+st.markdown(custom_style, unsafe_allow_html=True)
 
-# 3. إدارة المستخدمين والمصادقة
+# 4. حسابات المستخدمين وصلاحيات الدخول
 USERS = {
     "admin": "admin@2026",
     "inspecteur": "insp@2026",
@@ -129,9 +125,8 @@ if not st.session_state.authenticated:
     login_form()
     st.stop()
 
-# ----------------- الواجهة الرئيسية بعد تسجيل الدخول -----------------
+# ----------------- بعد تسجيل الدخول: الواجهة الرئيسية -----------------
 
-# القائمة الجانبية (Sidebar)
 with st.sidebar:
     st.markdown(f"### مرحباً بك 👋\n**`{st.session_state.username}`**")
     if st.button("تسجيل الخروج 🚪", use_container_width=True):
@@ -142,7 +137,7 @@ with st.sidebar:
     st.subheader("⚙️ إدارة ملف المعطيات")
     uploaded_file = st.file_uploader("رفع نسخة محدثة (Excel):", type=["xlsx", "xls"])
 
-# دالة قراءة البيانات التلقائية
+# دالة قراءة البيانات
 @st.cache_data
 def get_data(file_source):
     if file_source is not None:
@@ -174,14 +169,14 @@ if df.empty:
     st.info("👋 يرجى التأكد من رفع ملف الإكسيل في المستودع ليتم تحميل المعطيات تلقائياً.")
     st.stop()
 
-# التحقق من عمود المؤسسة (ETAB)
+# الكشف عن عمود المؤسسة ETAB
 etab_col = None
 for col in df.columns:
     if str(col).strip().upper() == "ETAB":
         etab_col = col
         break
 
-# عرض المؤشرات السريعة (KPIs)
+# بطاقات المؤشرات (KPIs)
 m1, m2, m3 = st.columns(3)
 with m1:
     st.metric(label="👥 إجمالي الموظفين المسجلين", value=f"{len(df):,}")
@@ -193,10 +188,10 @@ with m3:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# التبويبات
+# التبويبات الرئيسية
 tab_search, tab_stats = st.tabs(["🔍 البحث والاستعلام المتقدم", "📊 إحصائيات وتوزيع المؤسسات"])
 
-# التبويب 1: البحث
+# التبويب 1: البحث وتصدير النتائج
 with tab_search:
     col_input, col_etab_filter = st.columns([2, 1])
     with col_input:
@@ -220,7 +215,7 @@ with tab_search:
     st.markdown(f"**عدد السجلات المطابقة:** `{len(filtered_df):,}`")
     st.dataframe(filtered_df, use_container_width=True, height=450)
 
-    # زر التحميل بتنسيق أنيق
+    # زر استخراج النتائج
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         filtered_df.to_excel(writer, index=False, sheet_name="Résultats")
@@ -232,7 +227,7 @@ with tab_search:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# التبويب 2: الإحصائيات
+# التبويب 2: إحصائيات المؤسسات
 with tab_stats:
     if etab_col:
         st.subheader("📊 توزيع الموارد البشرية حسب المؤسسة التعليمية")
