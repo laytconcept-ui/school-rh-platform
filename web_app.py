@@ -12,63 +12,81 @@ st.set_page_config(
 
 # 2. تخصيص التصميم، الألوان، الخلفية، وإخفاء أشرطة التحكم
 custom_css = """
+import base64
+
+# دالة لقراءة صورة الخلفية المرفوعة
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
+
+img_b64 = get_base64_image("background.jpg")
+
+if img_b64:
+    bg_rule = f'background-image: linear-gradient(rgba(240, 244, 248, 0.90), rgba(240, 244, 248, 0.90)), url("data:image/jpeg;base64,{img_b64}");'
+else:
+    bg_rule = 'background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);'
+
+custom_css = f"""
 <style>
 /* إخفاء شريط أدوات وأزرار التحكم الرسمية لـ Streamlit */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-.stDeployButton {display:none;}
-[data-testid="stToolbar"] {visibility: hidden; display: none;}
-[data-testid="stDecoration"] {display: none;}
-[data-testid="stStatusWidget"] {visibility: hidden;}
+#MainMenu {{visibility: hidden;}}
+footer {{visibility: hidden;}}
+header {{visibility: hidden;}}
+.stDeployButton {{display:none;}}
+[data-testid="stToolbar"] {{visibility: hidden; display: none;}}
+[data-testid="stDecoration"] {{display: none;}}
+[data-testid="stStatusWidget"] {{visibility: hidden;}}
 
-/* خلفية الصفحة: تدرج أزرق تعليمي احترافي مع صورة هندسية أنيقة وخفيفة */
-.stApp {
-    background-image: linear-gradient(rgba(240, 244, 248, 0.94), rgba(240, 244, 248, 0.94)),
-                      url("background.jpg");
+/* خلفية الصفحة */
+.stApp {{
+    {bg_rule}
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
     direction: rtl;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+}}
 
 /* تنسيق بطاقة تسجيل الدخول وحاويات العرض */
-[data-testid="stForm"], .css-card {
-    background: rgba(255, 255, 255, 0.95);
+[data-testid="stForm"], .css-card {{
+    background: rgba(255, 255, 255, 0.96);
     border-radius: 16px;
     padding: 28px;
     box-shadow: 0 10px 25px rgba(0, 35, 75, 0.08);
     border: 1px solid rgba(226, 232, 240, 0.8);
-}
+}}
 
 /* بطاقات المؤشرات (Metrics) */
-[data-testid="metric-container"] {
+[data-testid="metric-container"] {{
     background: #ffffff;
     border: 1px solid #e2e8f0;
     padding: 14px 20px;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     border-right: 5px solid #1e40af;
-}
+}}
 
 /* تحسين شكل الأزرار */
-.stButton > button, .stDownloadButton > button {
+.stButton > button, .stDownloadButton > button {{
     border-radius: 8px;
     font-weight: 600;
     transition: all 0.2s ease-in-out;
-}
-.stButton > button:hover, .stDownloadButton > button:hover {
+}}
+.stButton > button:hover, .stDownloadButton > button:hover {{
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
-}
+}}
 
 /* محاذاة الجداول وحقول الإدخال للغة العربية */
-input, select {
+input, select {{
     text-align: right !important;
-}
+}}
 </style>
 """
+
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # 3. إدارة المستخدمين والمصادقة
