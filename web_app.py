@@ -382,17 +382,40 @@ with tab_etab:
           for c in [COL_C_ETAB, COL_SUB_NAME]
           if c in all_institution_staff.columns
       ]
+      # 1. إزالة أي تكرار محتمل في أسماء أعمدة التجميع
+      raw_grp_cols = [
+          c
+          for c in [COL_C_ETAB, COL_SUB_NAME]
+          if c in all_institution_staff.columns
+      ]
+      grp_cols = list(dict.fromkeys(raw_grp_cols))  # إزالة التكرار لضمان عدم حدوث ValueError
+
       if grp_cols:
         sub_units_summary = (
             all_institution_staff.groupby(grp_cols)
             .size()
             .reset_index(name="عدد العاملين بها")
         )
-        sub_units_summary.rename(
-            columns={
-                COL_C_ETAB: "كود الفرعية (C_ETAB)",
-                COL_SUB_NAME: "اسم الوحدة المدرسية / الفرعية",
-            },
+
+        # إعادة تسمية الأعمدة بطريقة آمنة
+        rename_map = {}
+        if COL_C_ETAB in sub_units_summary.columns:
+          rename_map[COL_C_ETAB] = "كود الفرعية (C_ETAB)"
+        if (
+            COL_SUB_NAME in sub_units_summary.columns
+            and COL_SUB_NAME != COL_C_ETAB
+        ):
+          rename_map[COL_SUB_NAME] = "اسم الوحدة المدرسية / الفرعية"
+
+        sub_units_summary.rename(columns=rename_map, inplace=True)
+
+        # إضافة عمود اسم الفرعية كنسخة إذا كان هو نفسه كود الفرعية
+        if "اسم الوحدة المدرسية / الفرعية" not in sub_units_summary.columns:
+          sub_units_summary["اسم الوحدة المدرسية / الفرعية"] = sub_units_summary[
+              "كود الفرعية (C_ETAB)"
+          ]
+      else:
+        sub_units_summary = pd.DataFrame()
             inplace=True,
         )
       else:
