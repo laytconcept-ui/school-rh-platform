@@ -5,7 +5,6 @@ import openpyxl
 import pandas as pd
 import streamlit as st
 
-# ضبط إعدادات الصفحة
 st.set_page_config(
     page_title="بوابة تدبير الموارد البشرية | RH Portal",
     page_icon="🏛️",
@@ -25,7 +24,6 @@ st.markdown(
         text-align: right;
     }
 
-    /* إخفاء جملة Press Enter to apply */
     div[data-testid="InputInstructions"] {
         display: none !important;
     }
@@ -144,7 +142,14 @@ st.markdown(
 
 # ==================== دوال قراءة وتنظيف البيانات ====================
 def find_excel_file():
-  possible_names = ["RH2026.xlsx", "rh2026.xlsx", "Rh2026.xlsx", "RH2026.XLSX"]
+  possible_names = [
+      "RH2026.xlsx",
+      "rh2026.xlsx",
+      "Rh2026.xlsx",
+      "RH2026.XLSX",
+      "RH.xlsx",
+      "rh.xlsx",
+  ]
   for name in possible_names:
     if os.path.exists(name):
       return name
@@ -183,6 +188,34 @@ else:
 if df_source.empty:
   st.info("👈 يرجى رفع ملف قاعدة البيانات لبدء التشغيل.")
   st.stop()
+
+# الكشف الذكي عن الأعمدة لمنع KeyError نهائياً
+cols = list(df_source.columns)
+
+
+def find_column(candidates, default):
+  for cand in candidates:
+    for c in cols:
+      if c.strip().lower() == cand.lower():
+        return c
+  return default
+
+
+COL_C_ETAB = find_column(["C_ETAB", "CD_ETAB", "كود الفرعية", "كود المؤسسة"], cols[0])
+COL_CD_ETAB = find_column(["CD_ETAB", "C_ETAB", "كود التعيين"], COL_C_ETAB)
+COL_PARENT_CODE = find_column(
+    ["الوحدة المدرسية", "كود المجموعة", "كود المركزية"], COL_CD_ETAB
+)
+COL_SUB_NAME = find_column(
+    ["الوحدة المدرسية.1", "اسم الفرعية", "الوحدة المدرسية"], COL_C_ETAB
+)
+COL_GRP_NAME = find_column(
+    ["المؤسسة", "اسم المجموعة", "المجموعة المدرسية"], COL_SUB_NAME
+)
+COL_TASK = find_column(
+    ["المهام", "FONCTION", "fonct", "المهمة", "الإطار"], cols[1]
+)
+COL_PPR = find_column(["PPR", "رقم التأجير", "تأجير"], cols[0])
 
 if "df" not in st.session_state or len(st.session_state.df) != len(df_source):
   st.session_state.df = df_source.copy()
@@ -231,7 +264,7 @@ st.markdown(
             <h1 class="portal-title">منظومة تدبير الموارد البشرية وتتبع المؤسسات والفرعيات</h1>
             <div class="portal-sub">استعلام دقيق للوحدات المدرسية والمجموعات المركزية - الموسم الدراسي 2026</div>
         </div>
-        <div class="portal-badge">نسخة الويب السحابية v4.0</div>
+        <div class="portal-badge">نسخة الويب السحابية v4.2</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -250,21 +283,23 @@ tab_etab, tab_search, tab_stats, tab_edit = st.tabs([
 # -------------------------------------------------------------
 with tab_etab:
   with st.form("etab_filter_form"):
-    st.markdown("##### 📍 تحديد المؤسسة التعليمية أو كود الفرعية (C_ETAB)")
+    st.markdown("##### 📍 تحديد المؤسسة التعليمية أو كود الفرعية")
     col_c1, col_c2, col_btn = st.columns([1.5, 2.5, 1])
 
     etab_input = (
         col_c1.text_input(
-            "أدخل كود المؤسسة أو الفرعية (C_ETAB):",
-            placeholder="مثال: 03242Y أو 03246C",
+            "أدخل كود المؤسسة أو الفرعية:", placeholder="مثال: 03242Y أو 03246C"
         )
         .strip()
         .upper()
     )
 
-    all_etabs = [""] + sorted(
-        list(df["C_ETAB"].replace("", pd.NA).dropna().unique())
-    )
+    all_etabs = [""]
+    if COL_C_ETAB in df.columns:
+      all_etabs += sorted(
+          list(df[COL_C_ETAB].replace("", pd.NA).dropna().unique())
+      )
+
     etab_dropdown = col_c2.selectbox("أو اختر كود المؤسسة من اللائحة:", all_etabs)
 
     col_btn.write("")
@@ -276,21 +311,28 @@ with tab_etab:
   target_code = etab_input if etab_input else etab_dropdown
 
   if target_code:
-    # البحث عن الكود سواء كان كود الفرعية C_ETAB أو كود المركزية في عمود 'الوحدة المدرسية'
-    found_rows = df[
-        (df["C_ETAB"].astype(str).str.upper() == target_code)
-        | (df["الوحدة المدرسية"].astype(str).str.upper() == target_code)
-    ]
+    # فلترة آمنة ومزدوجة
+    cond_c = df[COL_C_ETAB].astype(str).str.upper() == target_code
+    cond_p = (
+        (df[COL_PARENT_CODE].astype(str).str.upper() == target_code)
+        if COL_PARENT_CODE in df.columns
+        else cond_c
+    )
+    found_rows = df[cond_c | cond_p]
 
     if not found_rows.empty:
-      # استخراج كود المجموعة الأم واسم المؤسسة الجامعة
-      parent_code = found_rows.iloc[0].get("الوحدة المدرسية", target_code)
-      institution_name = found_rows.iloc[0].get("المؤسسة", "")
+      r0 = found_rows.iloc[0]
+      parent_code = r0.get(COL_PARENT_CODE, target_code)
+      institution_name = r0.get(COL_GRP_NAME, "")
 
-      # جلب كل العاملين في هذه المؤسسة المركزية وجميع الفرعيات التابعة لها
-      all_institution_staff = df[
-          df["الوحدة المدرسية"].astype(str).str.upper() == parent_code
-      ]
+      # جلب كافة العاملين بالمجموعة المدرسية وفروعها التابعة
+      if COL_PARENT_CODE in df.columns:
+        all_institution_staff = df[
+            df[COL_PARENT_CODE].astype(str).str.upper() == str(parent_code).upper()
+        ]
+      else:
+        all_institution_staff = found_rows
+
       if all_institution_staff.empty:
         all_institution_staff = found_rows
 
@@ -306,13 +348,12 @@ with tab_etab:
           else 0
       )
 
-      # بطاقات معلومات المؤسسة
       st.markdown(
           f"""
                 <div class="kpi-container">
                     <div class="kpi-box" style="border-right-color:#2563EB;">
                         <div class="kpi-label">المؤسسة / المجموعة المدرسية</div>
-                        <div class="kpi-num" style="font-size:18px;">{institution_name}</div>
+                        <div class="kpi-num" style="font-size:18px;">{institution_name if institution_name else 'مؤسسة مستقلة'}</div>
                     </div>
                     <div class="kpi-box" style="border-right-color:#0D9488;">
                         <div class="kpi-label">كود المركزية (المؤسسة الأم)</div>
@@ -331,46 +372,59 @@ with tab_etab:
           unsafe_allow_html=True,
       )
 
-      # ==================== جدول الوحدات المدرسية التابعة (الفرعيات) ====================
+      # جدول الوحدات المدرسية التابعة (الفرعيات)
       st.markdown(
           "#### 🏫 الوحدات المدرسية والفرعيات التابعة لهذه المؤسسة:"
       )
 
-      sub_units_summary = (
-          all_institution_staff.groupby(["C_ETAB", "الوحدة المدرسية.1"])
-          .size()
-          .reset_index(name="عدد العاملين")
-      )
-      sub_units_summary.columns = [
-          "كود الفرعية (C_ETAB)",
-          "اسم الوحدة المدرسية / الفرعية",
-          "عدد العاملين بها",
+      grp_cols = [
+          c
+          for c in [COL_C_ETAB, COL_SUB_NAME]
+          if c in all_institution_staff.columns
       ]
-      sub_units_summary["النسبة"] = (
-          sub_units_summary["عدد العاملين بها"] / total_staff * 100
-      ).map("{:.1f}%".format)
+      if grp_cols:
+        sub_units_summary = (
+            all_institution_staff.groupby(grp_cols)
+            .size()
+            .reset_index(name="عدد العاملين بها")
+        )
+        sub_units_summary.rename(
+            columns={
+                COL_C_ETAB: "كود الفرعية (C_ETAB)",
+                COL_SUB_NAME: "اسم الوحدة المدرسية / الفرعية",
+            },
+            inplace=True,
+        )
+      else:
+        sub_units_summary = pd.DataFrame()
 
       col_units, col_filter_unit = st.columns([2.5, 1.5])
       with col_units:
-        st.dataframe(
-            sub_units_summary, use_container_width=True, hide_index=True
-        )
+        if not sub_units_summary.empty:
+          st.dataframe(
+              sub_units_summary, use_container_width=True, hide_index=True
+          )
 
       with col_filter_unit:
-        st.markdown("###### تصفية العرض حسب وحدة مدرسية معينة:")
-        unit_options = ["عرض جميع الوحدات التابعة"] + [
-            f"{r['كود الفرعية (C_ETAB)']} - {r['اسم الوحدة المدرسية / الفرعية']}"
-            for _, r in sub_units_summary.iterrows()
-        ]
+        st.markdown("###### تصفية العرض حسب فرعية معينة:")
+        unit_opts = ["عرض جميع الوحدات التابعة"]
+        if (
+            not sub_units_summary.empty
+            and "كود الفرعية (C_ETAB)" in sub_units_summary.columns
+        ):
+          for _, r in sub_units_summary.iterrows():
+            c_code = r.get("كود الفرعية (C_ETAB)", "")
+            c_name = r.get("اسم الوحدة المدرسية / الفرعية", "")
+            unit_opts.append(f"{c_code} - {c_name}")
+
         selected_unit_choice = st.selectbox(
-            "اختر الفرعية لعرض أطرها فقط:", unit_options
+            "اختر الفرعية لعرض أطرها فقط:", unit_opts, key="sub_unit_choice"
         )
 
-      # تحديد العرض النهائي حسب اختيار الوحدة
       if selected_unit_choice != "عرض جميع الوحدات التابعة":
         unit_code_selected = selected_unit_choice.split(" - ")[0].strip()
         final_display_df = all_institution_staff[
-            all_institution_staff["C_ETAB"].astype(str).str.upper()
+            all_institution_staff[COL_C_ETAB].astype(str).str.upper()
             == unit_code_selected
         ]
         st.info(
@@ -380,31 +434,34 @@ with tab_etab:
       else:
         final_display_df = all_institution_staff
 
-      # ==================== جدول توزيع الأطر واللائحة الاسمية ====================
       st.markdown("---")
       col_t1, col_t2 = st.columns([1.2, 2.8])
       with col_t1:
         st.markdown("###### 📊 توزيع العاملين حسب المهمة:")
-        stats_tasks = final_display_df["المهام"].value_counts().reset_index()
-        stats_tasks.columns = ["المهمة", "العدد"]
-        stats_tasks["النسبة"] = (
-            stats_tasks["العدد"] / len(final_display_df) * 100
-        ).map("{:.1f}%".format)
-        st.dataframe(stats_tasks, use_container_width=True, hide_index=True)
+        if COL_TASK in final_display_df.columns:
+          stats_tasks = (
+              final_display_df[COL_TASK].value_counts().reset_index()
+          )
+          stats_tasks.columns = ["المهمة", "العدد"]
+          if len(final_display_df) > 0:
+            stats_tasks["النسبة"] = (
+                stats_tasks["العدد"] / len(final_display_df) * 100
+            ).map("{:.1f}%".format)
+          st.dataframe(stats_tasks, use_container_width=True, hide_index=True)
 
       with col_t2:
         st.markdown(
             "###### 📋 اللائحة الاسمية للعاملين (مع كود الفرعية واسمها):"
         )
         disp_cols = [
-            "PPR",
+            COL_PPR,
             "CIN",
             "NOM_AR",
             "NOM_FR",
-            "المهام",
-            "C_ETAB",
-            "الوحدة المدرسية.1",
-            "المؤسسة",
+            COL_TASK,
+            COL_C_ETAB,
+            COL_SUB_NAME,
+            COL_GRP_NAME,
             "الدرجة",
             "DATE_DEBUT_AFF",
         ]
@@ -413,18 +470,17 @@ with tab_etab:
             final_display_df[avail_cols], use_container_width=True, height=280
         )
 
-      # زر تصدير تقرير المؤسسة ووحداتها
       buf_e = io.BytesIO()
       with pd.ExcelWriter(buf_e, engine="openpyxl") as writer:
         final_display_df.to_excel(
             writer, index=False, sheet_name="اللائحة الاسمية"
         )
-        sub_units_summary.to_excel(
-            writer, index=False, sheet_name="الوحدات المدرسية"
-        )
-        stats_tasks.to_excel(writer, index=False, sheet_name="إحصاء الأطر")
+        if not sub_units_summary.empty:
+          sub_units_summary.to_excel(
+              writer, index=False, sheet_name="الوحدات المدرسية"
+          )
       st.download_button(
-          label="📥 تصدير تقرير المؤسسة ووحداتها المدرسية (Excel)",
+          label=f"📥 تصدير تقرير المؤسسة ووحداتها (Excel)",
           data=buf_e.getvalue(),
           file_name=f"RH_{target_code}.xlsx",
           mime=(
@@ -434,10 +490,7 @@ with tab_etab:
     else:
       st.warning(f"لم يتم العثور على أي موظف مسجل بالكود: `{target_code}`")
   else:
-    st.info(
-        "👈 المرجو إدخال كود المؤسسة أو اختياره من القائمة ثم الضغط على **تأكيد"
-        " الاستعلام**."
-    )
+    st.info("👈 المرجو إدخال كود المؤسسة ثم الضغط على **تأكيد الاستعلام**.")
 
 # -------------------------------------------------------------
 # 2. تبويب التنقيب الفردي
@@ -460,15 +513,7 @@ with tab_search:
     q_lower = query_val.lower()
     search_cols = [
         c
-        for c in [
-            "PPR",
-            "CIN",
-            "NOM_AR",
-            "NOM_FR",
-            "المؤسسة",
-            "الوحدة المدرسية.1",
-            "C_ETAB",
-        ]
+        for c in [COL_PPR, "CIN", "NOM_AR", "NOM_FR", COL_GRP_NAME, COL_SUB_NAME]
         if c in df.columns
     ]
     mask_q = df[search_cols].apply(
@@ -483,16 +528,16 @@ with tab_search:
     if not res_q.empty:
       st.success(f"تم العثور على **{len(res_q)}** نتيجة مطابقة:")
       disp_cols = [
-          "PPR",
+          COL_PPR,
           "CIN",
           "NOM_AR",
           "NOM_FR",
-          "المهام",
+          COL_TASK,
           "الاطار",
           "الدرجة",
-          "C_ETAB",
-          "الوحدة المدرسية.1",
-          "المؤسسة",
+          COL_C_ETAB,
+          COL_SUB_NAME,
+          COL_GRP_NAME,
           "DATE_DEBUT_AFF",
       ]
       cols_to_render = [c for c in disp_cols if c in res_q.columns]
@@ -507,11 +552,11 @@ with tab_search:
               f" {indiv.get('NOM_AR', '')} ({indiv.get('NOM_FR', '')})"
           )
           c_b1, c_b2, c_b3 = st.columns(3)
-          c_b1.markdown(f"**رقم التأجير (PPR):** `{indiv.get('PPR', '')}`")
+          c_b1.markdown(f"**رقم التأجير (PPR):** `{indiv.get(COL_PPR, '')}`")
           c_b1.markdown(f"**رقم البطاقة (CIN):** `{indiv.get('CIN', '')}`")
           c_b1.markdown(f"**تاريخ الازدياد:** {indiv.get('DATE_NAISSANCE', '')}")
 
-          c_b2.markdown(f"**المهمة:** {indiv.get('المهام', '')}")
+          c_b2.markdown(f"**المهمة:** {indiv.get(COL_TASK, '')}")
           c_b2.markdown(
               f"**الإطار والدرجة:** {indiv.get('الاطار', '')} -"
               f" {indiv.get('الدرجة', '')}"
@@ -520,10 +565,10 @@ with tab_search:
               f"**تاريخ التوظيف:** {indiv.get('DATE_ANC_ADM', '')}"
           )
 
-          c_b3.markdown(f"**المجموعة المدرسية:** {indiv.get('المؤسسة', '')}")
+          c_b3.markdown(f"**المجموعة المدرسية:** {indiv.get(COL_GRP_NAME, '')}")
           c_b3.markdown(
               "**الوحدة المدرسية (الفرعية):**"
-              f" {indiv.get('الوحدة المدرسية.1', '')} (`{indiv.get('C_ETAB', '')}`)"
+              f" {indiv.get(COL_SUB_NAME, '')} (`{indiv.get(COL_C_ETAB, '')}`)"
           )
           c_b3.markdown(
               "**تاريخ التعيين بالمؤسسة:**"
@@ -543,9 +588,9 @@ with tab_stats:
       (df["SEX"].str.upper() == "F").sum() if "SEX" in df.columns else 0
   )
   males_all = (df["SEX"].str.upper() == "M").sum() if "SEX" in df.columns else 0
-  sub_count = df["C_ETAB"].nunique() if "C_ETAB" in df.columns else 0
+  sub_count = df[COL_C_ETAB].nunique() if COL_C_ETAB in df.columns else 0
   main_count = (
-      df["الوحدة المدرسية"].nunique() if "الوحدة المدرسية" in df.columns else 0
+      df[COL_PARENT_CODE].nunique() if COL_PARENT_CODE in df.columns else 0
   )
 
   st.markdown(
@@ -575,8 +620,8 @@ with tab_stats:
   col_g1, col_g2 = st.columns(2)
   with col_g1:
     st.markdown("###### 📊 أعلى 10 مهام من حيث عدد الموظفين:")
-    if "المهام" in df.columns:
-      top_tasks_counts = df["المهام"].value_counts().head(10)
+    if COL_TASK in df.columns:
+      top_tasks_counts = df[COL_TASK].value_counts().head(10)
       top_tasks = pd.DataFrame({
           "المهمة / الإطار": top_tasks_counts.index,
           "العدد الإجمالي": top_tasks_counts.values,
@@ -585,8 +630,8 @@ with tab_stats:
 
   with col_g2:
     st.markdown("###### 🏫 أكبر 10 مجموعات مدرسية من حيث عدد الأطر:")
-    if "المؤسسة" in df.columns:
-      top_etabs_counts = df["المؤسسة"].value_counts().head(10)
+    if COL_GRP_NAME in df.columns:
+      top_etabs_counts = df[COL_GRP_NAME].value_counts().head(10)
       top_etabs = pd.DataFrame({
           "المؤسسة التعليمية": top_etabs_counts.index,
           "عدد الموظفين": top_etabs_counts.values,
@@ -605,8 +650,8 @@ with tab_edit:
       placeholder="مثال: 379274",
   ).strip()
 
-  if target_ppr:
-    match_idx = df.index[df["PPR"] == target_ppr].tolist()
+  if target_ppr and COL_PPR in df.columns:
+    match_idx = df.index[df[COL_PPR] == target_ppr].tolist()
     if match_idx:
       t_row = df.loc[match_idx[0]]
       st.success(
@@ -624,18 +669,18 @@ with tab_edit:
             "رقم البطاقة الوطنية (CIN):", t_row.get("CIN", "")
         )
 
-        u_task = f1.text_input("المهمة الحالية:", t_row.get("المهام", ""))
+        u_task = f1.text_input("المهمة الحالية:", t_row.get(COL_TASK, ""))
         u_cadre = f2.text_input("الإطار الإداري:", t_row.get("الاطار", ""))
         u_grade = f3.text_input("الدرجة:", t_row.get("الدرجة", ""))
 
         u_c_etab = f1.text_input(
-            "كود الفرعية (C_ETAB):", t_row.get("C_ETAB", "")
+            "كود الفرعية (C_ETAB):", t_row.get(COL_C_ETAB, "")
         )
         u_sub_name = f2.text_input(
-            "اسم الوحدة المدرسية (الفرعية):", t_row.get("الوحدة المدرسية.1", "")
+            "اسم الوحدة المدرسية (الفرعية):", t_row.get(COL_SUB_NAME, "")
         )
         u_grp_name = f3.text_input(
-            "المجموعة المدرسية المركزية:", t_row.get("المؤسسة", "")
+            "المجموعة المدرسية المركزية:", t_row.get(COL_GRP_NAME, "")
         )
 
         btn_commit = st.form_submit_button(
@@ -648,18 +693,18 @@ with tab_edit:
             df.loc[match_idx[0], "NOM_FR"] = u_nom_fr
           if "CIN" in df.columns:
             df.loc[match_idx[0], "CIN"] = u_cin
-          if "المهام" in df.columns:
-            df.loc[match_idx[0], "المهام"] = u_task
+          if COL_TASK in df.columns:
+            df.loc[match_idx[0], COL_TASK] = u_task
           if "الاطار" in df.columns:
             df.loc[match_idx[0], "الاطار"] = u_cadre
           if "الدرجة" in df.columns:
             df.loc[match_idx[0], "الدرجة"] = u_grade
-          if "C_ETAB" in df.columns:
-            df.loc[match_idx[0], "C_ETAB"] = u_c_etab
-          if "الوحدة المدرسية.1" in df.columns:
-            df.loc[match_idx[0], "الوحدة المدرسية.1"] = u_sub_name
-          if "المؤسسة" in df.columns:
-            df.loc[match_idx[0], "المؤسسة"] = u_grp_name
+          if COL_C_ETAB in df.columns:
+            df.loc[match_idx[0], COL_C_ETAB] = u_c_etab
+          if COL_SUB_NAME in df.columns:
+            df.loc[match_idx[0], COL_SUB_NAME] = u_sub_name
+          if COL_GRP_NAME in df.columns:
+            df.loc[match_idx[0], COL_GRP_NAME] = u_grp_name
           st.session_state.df = df
           st.success(
               "✓ تم حفظ التعديلات بنجاح! يمكنك الآن تحميل الملف المحين من"
