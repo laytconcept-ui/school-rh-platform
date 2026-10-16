@@ -189,7 +189,7 @@ if df_source.empty:
   st.info("👈 يرجى رفع ملف قاعدة البيانات لبدء التشغيل.")
   st.stop()
 
-# الكشف الذكي عن الأعمدة لمنع KeyError نهائياً
+# الكشف الذكي عن الأعمدة لمنع الأخطاء
 cols = list(df_source.columns)
 
 
@@ -264,7 +264,7 @@ st.markdown(
             <h1 class="portal-title">منظومة تدبير الموارد البشرية وتتبع المؤسسات والفرعيات</h1>
             <div class="portal-sub">استعلام دقيق للوحدات المدرسية والمجموعات المركزية - الموسم الدراسي 2026</div>
         </div>
-        <div class="portal-badge">نسخة الويب السحابية v4.2</div>
+        <div class="portal-badge">نسخة الويب السحابية v4.3</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -311,7 +311,6 @@ with tab_etab:
   target_code = etab_input if etab_input else etab_dropdown
 
   if target_code:
-    # فلترة آمنة ومزدوجة
     cond_c = df[COL_C_ETAB].astype(str).str.upper() == target_code
     cond_p = (
         (df[COL_PARENT_CODE].astype(str).str.upper() == target_code)
@@ -325,7 +324,6 @@ with tab_etab:
       parent_code = r0.get(COL_PARENT_CODE, target_code)
       institution_name = r0.get(COL_GRP_NAME, "")
 
-      # جلب كافة العاملين بالمجموعة المدرسية وفروعها التابعة
       if COL_PARENT_CODE in df.columns:
         all_institution_staff = df[
             df[COL_PARENT_CODE].astype(str).str.upper() == str(parent_code).upper()
@@ -372,23 +370,18 @@ with tab_etab:
           unsafe_allow_html=True,
       )
 
-      # جدول الوحدات المدرسية التابعة (الفرعيات)
+      # ==================== جدول الوحدات المدرسية التابعة (الفرعيات) ====================
       st.markdown(
           "#### 🏫 الوحدات المدرسية والفرعيات التابعة لهذه المؤسسة:"
       )
 
-      grp_cols = [
-          c
-          for c in [COL_C_ETAB, COL_SUB_NAME]
-          if c in all_institution_staff.columns
-      ]
-      # 1. إزالة أي تكرار محتمل في أسماء أعمدة التجميع
+      # إزالة أي تكرار محتمل في أسماء أعمدة التجميع لمنع خطأ ValueError
       raw_grp_cols = [
           c
           for c in [COL_C_ETAB, COL_SUB_NAME]
           if c in all_institution_staff.columns
       ]
-      grp_cols = list(dict.fromkeys(raw_grp_cols))  # إزالة التكرار لضمان عدم حدوث ValueError
+      grp_cols = list(dict.fromkeys(raw_grp_cols))
 
       if grp_cols:
         sub_units_summary = (
@@ -397,7 +390,6 @@ with tab_etab:
             .reset_index(name="عدد العاملين بها")
         )
 
-        # إعادة تسمية الأعمدة بطريقة آمنة
         rename_map = {}
         if COL_C_ETAB in sub_units_summary.columns:
           rename_map[COL_C_ETAB] = "كود الفرعية (C_ETAB)"
@@ -409,15 +401,10 @@ with tab_etab:
 
         sub_units_summary.rename(columns=rename_map, inplace=True)
 
-        # إضافة عمود اسم الفرعية كنسخة إذا كان هو نفسه كود الفرعية
         if "اسم الوحدة المدرسية / الفرعية" not in sub_units_summary.columns:
           sub_units_summary["اسم الوحدة المدرسية / الفرعية"] = sub_units_summary[
               "كود الفرعية (C_ETAB)"
           ]
-      else:
-        sub_units_summary = pd.DataFrame()
-            inplace=True,
-        )
       else:
         sub_units_summary = pd.DataFrame()
 
@@ -488,7 +475,9 @@ with tab_etab:
             "الدرجة",
             "DATE_DEBUT_AFF",
         ]
-        avail_cols = [c for c in disp_cols if c in final_display_df.columns]
+        # إزالة التكرار من أعمدة العرض لتفادي أي تداخل
+        clean_disp_cols = list(dict.fromkeys(disp_cols))
+        avail_cols = [c for c in clean_disp_cols if c in final_display_df.columns]
         st.dataframe(
             final_display_df[avail_cols], use_container_width=True, height=280
         )
@@ -503,7 +492,7 @@ with tab_etab:
               writer, index=False, sheet_name="الوحدات المدرسية"
           )
       st.download_button(
-          label=f"📥 تصدير تقرير المؤسسة ووحداتها (Excel)",
+          label="📥 تصدير تقرير المؤسسة ووحداتها (Excel)",
           data=buf_e.getvalue(),
           file_name=f"RH_{target_code}.xlsx",
           mime=(
@@ -534,10 +523,16 @@ with tab_search:
 
   if query_val:
     q_lower = query_val.lower()
+    raw_search_cols = [
+        COL_PPR,
+        "CIN",
+        "NOM_AR",
+        "NOM_FR",
+        COL_GRP_NAME,
+        COL_SUB_NAME,
+    ]
     search_cols = [
-        c
-        for c in [COL_PPR, "CIN", "NOM_AR", "NOM_FR", COL_GRP_NAME, COL_SUB_NAME]
-        if c in df.columns
+        c for c in list(dict.fromkeys(raw_search_cols)) if c in df.columns
     ]
     mask_q = df[search_cols].apply(
         lambda row: row.astype(str)
@@ -550,7 +545,7 @@ with tab_search:
 
     if not res_q.empty:
       st.success(f"تم العثور على **{len(res_q)}** نتيجة مطابقة:")
-      disp_cols = [
+      raw_disp_cols = [
           COL_PPR,
           "CIN",
           "NOM_AR",
@@ -563,6 +558,7 @@ with tab_search:
           COL_GRP_NAME,
           "DATE_DEBUT_AFF",
       ]
+      disp_cols = list(dict.fromkeys(raw_disp_cols))
       cols_to_render = [c for c in disp_cols if c in res_q.columns]
       st.dataframe(res_q[cols_to_render], use_container_width=True)
 
