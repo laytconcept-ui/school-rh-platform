@@ -24,7 +24,6 @@ st.markdown(
         text-align: right;
     }
 
-    /* إخفاء جملة Press Enter to apply */
     div[data-testid="InputInstructions"] {
         display: none !important;
     }
@@ -142,7 +141,6 @@ st.markdown(
 
 
 def clean_value(val):
-  """تنظيف النصوص وإزالة .0 من أرقام التأجير والأكواد الرقمية"""
   if pd.isna(val) or val is None:
     return ""
   s = str(val).strip()
@@ -199,7 +197,6 @@ if df_source.empty:
   st.info("👈 يرجى رفع ملف قاعدة البيانات لبدء التشغيل.")
   st.stop()
 
-# تحديد وتأمين أسماء الأعمدة بحسب طلبك
 cols_all = list(df_source.columns)
 
 
@@ -212,7 +209,6 @@ def detect_col(candidates, fallback):
 
 
 COL_C_ETAB = detect_col(["C_ETAB", "كود المؤسسة"], cols_all[0])
-# كود الوحدة المدرسية يؤخذ من c_unité أو c_unite أو الوحدة المدرسية
 COL_UNIT_CODE = detect_col(
     ["c_unité", "c_unite", "c-unite", "الوحدة المدرسية", "كود الوحدة"],
     COL_C_ETAB,
@@ -234,7 +230,113 @@ if "df" not in st.session_state or len(st.session_state.df) != len(df_source):
 
 df = st.session_state.df
 
-# ==================== الشريط الجانبي ====================
+
+# ==================== نافذة التعديل المنبثقة الشاملة (Modal Dialog) ====================
+if hasattr(st, "dialog"):
+  dialog_decorator = st.dialog("✏️ بطاقة تعديل المعطيات الشاملة للأستاذ")
+else:
+
+  def dialog_decorator(func):
+
+    def wrapper(*args, **kwargs):
+      with st.expander("✏️ بطاقة تعديل المعطيات الشاملة للأستاذ", expanded=True):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+@dialog_decorator
+def show_teacher_edit_dialog(ppr_selected):
+  match_indices = df.index[df[COL_PPR] == str(ppr_selected)].tolist()
+  if not match_indices:
+    st.error("تعذر العثور على سجل هذا الأستاذ!")
+    return
+
+  idx = match_indices[0]
+  t = df.loc[idx]
+
+  st.markdown(
+      f"### 👤 {t.get('NOM_AR', '')} | {t.get('NOM_FR', '')} (PPR:"
+      f" `{ppr_selected}`)"
+  )
+  st.caption(
+      "يمكنك تعديل أي معلومة ثم الضغط على زر الحفظ لتحديث قاعدة البيانات"
+      " فوراً."
+  )
+
+  with st.form("modal_edit_teacher_form"):
+    st.markdown("##### 📌 المعطيات الشخصية والمهنية")
+    c1, c2, c3 = st.columns(3)
+    v_nom_ar = c1.text_input("الاسم بالعربية:", t.get("NOM_AR", ""))
+    v_nom_fr = c2.text_input("الاسم بالفرنسية:", t.get("NOM_FR", ""))
+    v_cin = c3.text_input("رقم البطاقة (CIN):", t.get("CIN", ""))
+
+    v_sex = c1.text_input("الجنس (M/F):", t.get("SEX", ""))
+    v_sit = c2.text_input("الحالة العائلية:", t.get("SIT_FAM", ""))
+    v_nais = c3.text_input("تاريخ الازدياد:", t.get("DATE_NAISSANCE", ""))
+
+    st.markdown("##### 🏫 معطيات التعيين والوحدة المدرسية")
+    c4, c5, c6 = st.columns(3)
+    v_c_etab = c4.text_input("كود المؤسسة (C_ETAB):", t.get(COL_C_ETAB, ""))
+    v_u_code = c5.text_input("كود الوحدة المدرسية:", t.get(COL_UNIT_CODE, ""))
+    v_u_name = c6.text_input(
+        "اسم الوحدة المدرسية (الفرعية):", t.get(COL_UNIT_NAME, "")
+    )
+
+    v_inst = c4.text_input(
+        "المجموعة المدرسية المركزية:", t.get(COL_INSTITUTION, "")
+    )
+    v_task = c5.text_input("المهمة:", t.get(COL_TASK, ""))
+    v_cadre = c6.text_input("الإطار:", t.get("الاطار", ""))
+
+    st.markdown("##### 📜 الترقية والتواريخ الإدارية")
+    c7, c8, c9 = st.columns(3)
+    v_grade = c7.text_input("الدرجة:", t.get("الدرجة", ""))
+    v_d_aff = c8.text_input(
+        "تاريخ التعيين بالمؤسسة:", t.get("DATE_DEBUT_AFF", "")
+    )
+    v_d_rec = c9.text_input("تاريخ التوظيف:", t.get("DATE_ANC_ADM", ""))
+
+    v_d_gd = c7.text_input("تاريخ مفعول الدرجة:", t.get("DATE_EFFET_GD", ""))
+    v_d_elo = c8.text_input("تاريخ مفعول الرتبة:", t.get("DATE_EFFET_ELO", ""))
+    v_cd_etab = c9.text_input("كود التعيين (CD_ETAB):", t.get("CD_ETAB", ""))
+
+    submitted = st.form_submit_button(
+        "💾 حفظ كافة التعديلات في قاعدة البيانات",
+        type="primary",
+        use_container_width=True,
+    )
+    if submitted:
+      updates = {
+          "NOM_AR": v_nom_ar,
+          "NOM_FR": v_nom_fr,
+          "CIN": v_cin,
+          "SEX": v_sex,
+          "SIT_FAM": v_sit,
+          "DATE_NAISSANCE": v_nais,
+          COL_C_ETAB: v_c_etab,
+          COL_UNIT_CODE: v_u_code,
+          COL_UNIT_NAME: v_u_name,
+          COL_INSTITUTION: v_inst,
+          COL_TASK: v_task,
+          "الاطار": v_cadre,
+          "الدرجة": v_grade,
+          "DATE_DEBUT_AFF": v_d_aff,
+          "DATE_ANC_ADM": v_d_rec,
+          "DATE_EFFET_GD": v_d_gd,
+          "DATE_EFFET_ELO": v_d_elo,
+          "CD_ETAB": v_cd_etab,
+      }
+      for col_name, val in updates.items():
+        if col_name in df.columns:
+          df.loc[idx, col_name] = clean_value(val)
+
+      st.session_state.df = df
+      st.success("✓ تم حفظ كافة التعديلات وتحديث السجل بنجاح!")
+      st.rerun()
+
+
+# ==================== القائمة الجانبية ====================
 with st.sidebar:
   st.markdown(
       """
@@ -274,9 +376,9 @@ st.markdown(
     <div class="portal-header">
         <div>
             <h1 class="portal-title">منظومة تدبير الموارد البشرية وتتبع المؤسسات والفرعيات</h1>
-            <div class="portal-sub">مطابقة دقيقة لكود المؤسسة (C_ETAB) وكود الوحدة المدرسية - الموسم الدراسي 2026</div>
+            <div class="portal-sub">فلترة مباشرة بكود المؤسسة (C_ETAB) واستعلام تفاعلي لبطاقة الأستاذ - الموسم الدراسي 2026</div>
         </div>
-        <div class="portal-badge">نسخة الويب السحابية v4.6</div>
+        <div class="portal-badge">نسخة الويب التفاعلية v5.0</div>
     </div>
 """,
     unsafe_allow_html=True,
@@ -284,7 +386,7 @@ st.markdown(
 
 # ==================== التبويبات ====================
 tab_etab, tab_search, tab_stats, tab_edit = st.tabs([
-    "🏫 استعلام المؤسسة بكود C_ETAB والوحدات التابعة",
+    "🏫 استعلام المؤسسة والوحدات التابعة",
     "🔍 التنقيب والبحث الفردي",
     "📊 لوحة المؤشرات والإحصاء",
     "✏️ تدبير وتعديل سجل موظف",
@@ -323,7 +425,6 @@ with tab_etab:
   target_code = etab_input if etab_input else etab_dropdown
 
   if target_code:
-    # مطابقة تامة وصريحة لكود C_ETAB فقط لمنع أي خلط بين أكواد مثل 03254L و 03254M
     res_etab = df[
         df[COL_C_ETAB].astype(str).str.strip().str.upper() == target_code
     ]
@@ -344,7 +445,6 @@ with tab_etab:
           else 0
       )
 
-      # بطاقات المؤشرات
       st.markdown(
           f"""
                 <div class="kpi-container">
@@ -369,7 +469,7 @@ with tab_etab:
           unsafe_allow_html=True,
       )
 
-      # ==================== جدول معطيات الوحدات المدرسية التابعة ====================
+      # جدول الوحدات المدرسية التابعة
       st.markdown(
           f"#### 🏫 الوحدات المدرسية التابعة للمؤسسة `{target_code}`:"
       )
@@ -383,7 +483,6 @@ with tab_etab:
         sub_units_summary = (
             res_etab.groupby(clean_grp).size().reset_index(name="عدد العاملين")
         )
-
         rename_map = {}
         if COL_UNIT_CODE in sub_units_summary.columns:
           rename_map[COL_UNIT_CODE] = "كود الوحدة المدرسية (c_unité)"
@@ -392,14 +491,12 @@ with tab_etab:
             and COL_UNIT_NAME != COL_UNIT_CODE
         ):
           rename_map[COL_UNIT_NAME] = "اسم الوحدة المدرسية"
-
         sub_units_summary.rename(columns=rename_map, inplace=True)
 
         if "اسم الوحدة المدرسية" not in sub_units_summary.columns:
           sub_units_summary["اسم الوحدة المدرسية"] = sub_units_summary.get(
               "كود الوحدة المدرسية (c_unité)", ""
           )
-
         sub_units_summary["النسبة"] = (
             sub_units_summary["عدد العاملين"] / total_staff * 100
         ).map("{:.1f}%".format)
@@ -431,7 +528,6 @@ with tab_etab:
             key="unit_select_choice_etab",
         )
 
-      # تصفية اللائحة بناءً على الوحدة المدرسية المختارة بمطابقة تامة
       if selected_unit_choice != "عرض جميع الوحدات المدرسية التابعة":
         unit_code_selected = (
             selected_unit_choice.split(" - ")[0].strip().upper()
@@ -447,43 +543,61 @@ with tab_etab:
       else:
         final_display_df = res_etab
 
-      # ==================== جدول توزيع الأطر واللائحة الاسمية ====================
       st.markdown("---")
-      col_t1, col_t2 = st.columns([1.2, 2.8])
-      with col_t1:
-        st.markdown("###### 📊 توزيع العاملين حسب المهمة:")
-        if COL_TASK in final_display_df.columns:
-          stats_tasks = (
-              final_display_df[COL_TASK].value_counts().reset_index()
-          )
-          stats_tasks.columns = ["المهمة", "العدد"]
-          if len(final_display_df) > 0:
-            stats_tasks["النسبة"] = (
-                stats_tasks["العدد"] / len(final_display_df) * 100
-            ).map("{:.1f}%".format)
-          st.dataframe(stats_tasks, use_container_width=True, hide_index=True)
+      stats_tasks = (
+          final_display_df[COL_TASK].value_counts().reset_index()
+      )
+      stats_tasks.columns = ["المهمة", "العدد"]
+      if len(final_display_df) > 0:
+        stats_tasks["النسبة"] = (
+            stats_tasks["العدد"] / len(final_display_df) * 100
+        ).map("{:.1f}%".format)
 
-      with col_t2:
-        st.markdown("###### 📋 اللائحة الاسمية للعاملين بالمؤسسة:")
-        disp_cols = [
-            COL_PPR,
-            "CIN",
-            "NOM_AR",
-            "NOM_FR",
-            COL_TASK,
-            COL_C_ETAB,
-            COL_UNIT_CODE,
-            COL_UNIT_NAME,
-            COL_INSTITUTION,
-            "الدرجة",
-            "DATE_DEBUT_AFF",
-        ]
-        clean_disp = list(dict.fromkeys(disp_cols))
-        avail_cols = [c for c in clean_disp if c in final_display_df.columns]
-        st.dataframe(
-            final_display_df[avail_cols], use_container_width=True, height=280
-        )
+      # ==================== اللائحة الاسمية للعاملين بالمؤسسة مع ميزة النقر والتعديل ====================
+      st.markdown("#### 📋 اللائحة الاسمية للعاملين بالمؤسسة:")
+      st.caption(
+          "💡 **انقر على أي سطر في الجدول** لفتح واجهة منفردة (نافذة تفاعلية)"
+          " تمكنك من معاينة وتعديل معطيات الأستاذ وحفظها مباشرة."
+      )
 
+      # إظهار عمود الوحدة المدرسية وكودها بوضوح في الواجهة
+      disp_cols = [
+          COL_PPR,
+          "CIN",
+          "NOM_AR",
+          "NOM_FR",
+          COL_TASK,
+          COL_UNIT_NAME,
+          COL_UNIT_CODE,
+          COL_C_ETAB,
+          "الدرجة",
+          "DATE_DEBUT_AFF",
+      ]
+      clean_disp = list(dict.fromkeys(disp_cols))
+      avail_cols = [c for c in clean_disp if c in final_display_df.columns]
+
+      # إعداد جدول تفاعلي يدعم تحديد السطر فوراً
+      selection = st.dataframe(
+          final_display_df[avail_cols],
+          use_container_width=True,
+          height=300,
+          on_select="rerun",
+          selection_mode="single-row",
+      )
+
+      # فتح واجهة التعديل المستقلة عند اختيار أي سطر
+      if (
+          selection
+          and selection.get("selection")
+          and selection["selection"].get("rows")
+      ):
+        selected_row_idx = selection["selection"]["rows"][0]
+        clicked_ppr = str(
+            final_display_df.iloc[selected_row_idx][COL_PPR]
+        ).strip()
+        show_teacher_edit_dialog(clicked_ppr)
+
+      # زر تصدير التقرير
       buf_e = io.BytesIO()
       with pd.ExcelWriter(buf_e, engine="openpyxl") as writer:
         final_display_df.to_excel(
@@ -493,6 +607,7 @@ with tab_etab:
           sub_units_summary.to_excel(
               writer, index=False, sheet_name="الوحدات المدرسية"
           )
+        stats_tasks.to_excel(writer, index=False, sheet_name="إحصاء الأطر")
       st.download_button(
           label=f"📥 تصدير تقرير المؤسسة {target_code} (Excel)",
           data=buf_e.getvalue(),
@@ -529,10 +644,7 @@ with tab_search:
     )
 
   if query_val:
-    # البحث برقم التأجير أو البطاقة بمطابقة مباشرة ونظيفة بدون .0
     q_clean = clean_value(query_val).lower()
-
-    # مطابقة تامة لرقم التأجير أولاً، ثم مطابقة جزئية للأسماء
     mask_ppr = df[COL_PPR].astype(str).str.strip() == q_clean
     mask_cin = (
         df["CIN"].astype(str).str.strip().str.lower() == q_clean
@@ -547,7 +659,10 @@ with tab_search:
     res_q = df[mask_ppr | mask_cin | mask_names]
 
     if not res_q.empty:
-      st.success(f"تم العثور على **{len(res_q)}** نتيجة مطابقة:")
+      st.success(
+          f"تم العثور على **{len(res_q)}** نتيجة مطابقة (انقر على السطر"
+          " لتعديله):"
+      )
       raw_disp_cols = [
           COL_PPR,
           "CIN",
@@ -556,15 +671,25 @@ with tab_search:
           COL_TASK,
           "الاطار",
           "الدرجة",
-          COL_C_ETAB,
-          COL_UNIT_CODE,
           COL_UNIT_NAME,
-          COL_INSTITUTION,
+          COL_UNIT_CODE,
+          COL_C_ETAB,
           "DATE_DEBUT_AFF",
       ]
       disp_cols = list(dict.fromkeys(raw_disp_cols))
       cols_to_render = [c for c in disp_cols if c in res_q.columns]
-      st.dataframe(res_q[cols_to_render], use_container_width=True)
+
+      sel_q = st.dataframe(
+          res_q[cols_to_render],
+          use_container_width=True,
+          on_select="rerun",
+          selection_mode="single-row",
+      )
+
+      if sel_q and sel_q.get("selection") and sel_q["selection"].get("rows"):
+        r_idx = sel_q["selection"]["rows"][0]
+        clicked_q_ppr = str(res_q.iloc[r_idx][COL_PPR]).strip()
+        show_teacher_edit_dialog(clicked_q_ppr)
 
       if len(res_q) == 1:
         indiv = res_q.iloc[0]
@@ -589,12 +714,12 @@ with tab_search:
           )
 
           c_b3.markdown(
-              f"**المؤسسة (المجموعة):** {indiv.get(COL_INSTITUTION, '')}"
-              f" (`{indiv.get(COL_C_ETAB, '')}`)"
+              "**المؤسسة (المجموعة):**"
+              f" {indiv.get(COL_INSTITUTION, '')} (`{indiv.get(COL_C_ETAB, '')}`)"
           )
           c_b3.markdown(
-              f"**الوحدة المدرسية:** {indiv.get(COL_UNIT_NAME, '')}"
-              f" (`{indiv.get(COL_UNIT_CODE, '')}`)"
+              "**الوحدة المدرسية (الفرعية):**"
+              f" {indiv.get(COL_UNIT_NAME, '')} (`{indiv.get(COL_UNIT_CODE, '')}`)"
           )
           c_b3.markdown(
               "**تاريخ التعيين بالمؤسسة:**"
@@ -665,11 +790,10 @@ with tab_stats:
       st.dataframe(top_etabs, use_container_width=True, hide_index=True)
 
 # -------------------------------------------------------------
-# 4. تبويب تعديل سجل موظف
+# 4. تبويب تعديل سجل موظف بالبحث المباشر
 # -------------------------------------------------------------
 with tab_edit:
   st.markdown("##### ✏️ نموذج تعديل أو تحيين المعطيات الإدارية لموظف")
-
   col_p1, col_p2 = st.columns([2, 1])
   target_ppr = clean_value(
       col_p1.text_input(
@@ -689,7 +813,7 @@ with tab_edit:
           f" ({t_row.get('NOM_FR', '')})"
       )
 
-      with st.form("edit_employee_form"):
+      with st.form("edit_employee_form_direct"):
         f1, f2, f3 = st.columns(3)
         u_nom_ar = f1.text_input(
             "الاسم الكامل بالعربية:", t_row.get("NOM_AR", "")
