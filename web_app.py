@@ -25,7 +25,6 @@ st.markdown(
         background-color: #F8FAFC !important;
     }
 
-    /* حماية القائمة الجانبية من تسرب النصوص على الهاتف */
     [data-testid="stSidebar"] {
         overflow: hidden !important;
     }
@@ -33,7 +32,6 @@ st.markdown(
         display: none !important;
     }
     
-    /* إخفاء تلميحات الإدخال الإنجليزية */
     div[data-testid="InputInstructions"] {
         display: none !important;
     }
@@ -41,7 +39,6 @@ st.markdown(
         display: none !important;
     }
 
-    /* الشريط الأزرق العلوي (الترويسة) */
     .portal-header {
         background: linear-gradient(135deg, #1B365D 0%, #2A5298 100%);
         padding: 18px 24px;
@@ -62,7 +59,6 @@ st.markdown(
         margin: 0;
     }
 
-    /* بطاقات المؤشرات الإحصائية */
     .kpi-container {
         display: flex;
         flex-wrap: wrap;
@@ -183,11 +179,136 @@ def load_data(source):
     return pd.DataFrame()
 
 
-def export_to_excel(df_to_export, sheet_name="Data"):
+def export_etab_excel_with_header(df_to_export, etab_code, institution_name):
+  """تصدير ملف إكسيل يحمل الترويسة الرسمية لوزارة التربية الوطنية في السطور الأولى"""
+  wb = openpyxl.Workbook()
+  ws = wb.active
+  ws.title = "لائحة العاملين"
+  ws.views.sheetView[0].rightToLeft = True
+
+  # الترويسة الرسمية
+  headers_lines = [
+      "المملكة المغربية",
+      "وزارة التربية الوطنية والتعليم الأولي والرياضة",
+      "الأكاديمية الجهوية للتربية والتكوين جهة مراكش - آسفي",
+      "المديرية الإقليمية بالحوز - مصلحة تدبير الموارد البشرية",
+      (
+          f"لائحة العاملين بمؤسسة: {institution_name} (رمز المؤسسة:"
+          f" {etab_code})"
+      ),
+      "",
+  ]
+
+  for r_idx, line in enumerate(headers_lines, start=1):
+    cell = ws.cell(row=r_idx, column=1, value=line)
+    cell.font = openpyxl.styles.Font(
+        name="Arial", size=11, bold=True, color="1B365D"
+    )
+
+  # كتابة عناوين الأعمدة
+  cols = list(df_to_export.columns)
+  for c_idx, col_name in enumerate(cols, start=1):
+    c = ws.cell(row=7, column=c_idx, value=col_name)
+    c.font = openpyxl.styles.Font(name="Arial", size=10, bold=True, color="FFFFFF")
+    c.fill = openpyxl.styles.PatternFill(
+        start_color="1F538D", end_color="1F538D", fill_type="solid"
+    )
+    c.alignment = openpyxl.styles.Alignment(
+        horizontal="center", vertical="center"
+    )
+
+  # كتابة البيانات
+  for r_i, (_, row_data) in enumerate(df_to_export.iterrows(), start=8):
+    for c_i, val in enumerate(row_data, start=1):
+      cell = ws.cell(row=r_i, column=c_i, value=str(val))
+      cell.font = openpyxl.styles.Font(name="Arial", size=9)
+      cell.alignment = openpyxl.styles.Alignment(
+          horizontal="center", vertical="center"
+      )
+
   out = io.BytesIO()
-  with pd.ExcelWriter(out, engine="openpyxl") as writer:
-    df_to_export.to_excel(writer, index=False, sheet_name=sheet_name)
+  wb.save(out)
   return out.getvalue()
+
+
+def generate_printable_html(df_to_print, etab_code, institution_name):
+  """توليد وثيقة A4 مهيأة للطباعة المباشرة مع الترويسة الرسمية"""
+  table_html = df_to_print.to_html(index=False, classes="print-table")
+  html_doc = f"""
+  <!DOCTYPE html>
+  <html dir="rtl" lang="ar">
+  <head>
+      <meta charset="utf-8">
+      <title>لائحة العاملين - {institution_name}</title>
+      <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&display=swap');
+          body {{
+              font-family: 'Cairo', Tahoma, sans-serif;
+              margin: 20px;
+              color: #000;
+          }}
+          .header {{
+              text-align: center;
+              border-bottom: 2px solid #1B365D;
+              padding-bottom: 12px;
+              margin-bottom: 20px;
+          }}
+          .header h3, .header h4, .header h5 {{
+              margin: 4px 0;
+          }}
+          .inst-info {{
+              background-color: #f1f5f9;
+              padding: 10px 15px;
+              border-radius: 6px;
+              margin-bottom: 15px;
+              font-weight: bold;
+              display: flex;
+              justify-content: space-between;
+          }}
+          .print-table {{
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 10px;
+              font-size: 11px;
+          }}
+          .print-table th, .print-table td {{
+              border: 1px solid #334155;
+              padding: 6px 8px;
+              text-align: center;
+          }}
+          .print-table th {{
+              background-color: #1E3A8A;
+              color: white;
+          }}
+          .print-table tr:nth-child(even) {{
+              background-color: #F8FAFC;
+          }}
+          @media print {{
+              @page {{ size: A4 landscape; margin: 12mm; }}
+              .no-print {{ display: none; }}
+          }}
+      </style>
+  </head>
+  <body>
+      <div class="header">
+          <h4>المملكة المغربية</h4>
+          <h3>وزارة التربية الوطنية والتعليم الأولي والرياضة</h3>
+          <h4>الأكاديمية الجهوية للتربية والتكوين جهة مراكش - آسفي</h4>
+          <h5>المديرية الإقليمية بالحوز - مصلحة تدبير الموارد البشرية</h5>
+      </div>
+      <div class="inst-info">
+          <span>المؤسسة: {institution_name}</span>
+          <span>كود المؤسسة (C_ETAB): {etab_code}</span>
+          <span>إجمالي العاملين: {len(df_to_print)}</span>
+      </div>
+      {table_html}
+      <script>
+          window.onload = function() {{ window.print(); }}
+      </script>
+  </body>
+  </html>
+  """
+  return html_doc
 
 
 detected_file = find_excel_file()
@@ -351,24 +472,9 @@ with st.sidebar:
   st.markdown("### 🏛️ المديرية الإقليمية بالحوز")
   st.metric("إجمالي الموظفين", f"{len(df):,} فرد")
 
-  if st.button("📥 تجهيز ملف Excel للتحميل", use_container_width=True):
-    st.session_state["ready_export_all"] = export_to_excel(df, "PERSONNEL")
-
-  if "ready_export_all" in st.session_state:
-    st.download_button(
-        label="💾 تنزيل ملف Excel الكامل",
-        data=st.session_state["ready_export_all"],
-        file_name="RH2026_Updated.xlsx",
-        mime=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
-        use_container_width=True,
-    )
-
   if st.button("🔄 إعادة ضبط وتحديث القاعدة", use_container_width=True):
     if detected_file:
       st.session_state.df = load_data(detected_file)
-      st.session_state.pop("ready_export_all", None)
       st.success("تم تحديث البيانات بنجاح!")
       st.rerun()
 
@@ -378,23 +484,23 @@ st.markdown(
     <div class="portal-header">
         <div>
             <h1 class="portal-title">منظومة تدبير الموارد البشرية لمديرية الحوز</h1>
-            <p class="portal-sub">مصلحة الموارد البشرية والتخطيط - الموسم الدراسي 2026</p>
+            <p class="portal-sub">وزارة التربية الوطنية والتعليم الأولي والرياضة - مصلحة تدبير الموارد البشرية 2026</p>
         </div>
     </div>
 """,
     unsafe_allow_html=True,
 )
 
-# ==================== التبويبات الرئيسية ====================
+# ==================== التبويبات ====================
 tab_etab, tab_search, tab_stats, tab_edit = st.tabs([
-    "🏫 استعلام المؤسسة",
+    "🏫 استعلام المؤسسة والطباعة",
     "🔍 البحث السريع",
     "📊 المؤشرات",
     "✏️ تعديل المعطيات",
 ])
 
 # -------------------------------------------------------------
-# 1. تبويب استعلام المؤسسة بكود C_ETAB
+# 1. تبويب استعلام المؤسسة والطباعة الرسمية
 # -------------------------------------------------------------
 with tab_etab:
   with st.form("etab_filter_form"):
@@ -562,20 +668,36 @@ with tab_etab:
         ).strip()
         show_teacher_edit_dialog(clicked_ppr)
 
-      if st.button("📥 تجهيز ملف تقرير المؤسسة (Excel)"):
-        st.session_state[f"export_{target_code}"] = export_to_excel(
-            final_display_df, "اللائحة الاسمية"
-        )
+      # ==================== أزرار الطباعة الرسمية وتصدير الإكسيل ====================
+      st.markdown("---")
+      col_btn1, col_btn2 = st.columns(2)
 
-      if f"export_{target_code}" in st.session_state:
-        st.download_button(
-            label=f"💾 تنزيل تقرير {target_code} (Excel)",
-            data=st.session_state[f"export_{target_code}"],
-            file_name=f"RH_{target_code}.xlsx",
-            mime=(
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            ),
-        )
+      # 1. زر تصدير Excel رسمي بالترويسة
+      excel_official = export_etab_excel_with_header(
+          rendered_df, target_code, institution_name
+      )
+      col_btn1.download_button(
+          label="📊 تحميل ملف Excel بالترويسة الرسمية",
+          data=excel_official,
+          file_name=f"RH_{target_code}_Official.xlsx",
+          mime=(
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          ),
+          use_container_width=True,
+      )
+
+      # 2. زر الطباعة الفورية A4
+      html_print = generate_printable_html(
+          rendered_df, target_code, institution_name
+      )
+      col_btn2.download_button(
+          label="🖨️ طباعة اللائحة الرسمية (A4 / PDF)",
+          data=html_print,
+          file_name=f"Imprimer_{target_code}.html",
+          mime="text/html",
+          use_container_width=True,
+      )
+
     else:
       st.warning(
           "لم يتم العثور على أي موظف مسجل بكود المؤسسة C_ETAB:"
@@ -587,7 +709,7 @@ with tab_etab:
     )
 
 # -------------------------------------------------------------
-# 2. تبويب البحث الفردي السريع
+# 2. تبويب البحث الفردي
 # -------------------------------------------------------------
 with tab_search:
   with st.form("search_form"):
