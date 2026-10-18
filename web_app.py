@@ -6,19 +6,18 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(
-    page_title="بوابة تدبير الموارد البشرية",
+    page_title="منظومة تدبير الموارد البشرية لمديرية الحوز",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ==================== CSS منقح ومضبوط لمنع تشوه شاشات الهاتف ====================
+# ==================== تنسيقات CSS احترافية ومتجاوبة ====================
 st.markdown(
     """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800&display=swap');
     
-    /* ضبط الخط العربي بدون المساس بهياكل Streamlit الداخلية */
     .stApp {
         font-family: 'Cairo', sans-serif !important;
         direction: rtl !important;
@@ -26,7 +25,7 @@ st.markdown(
         background-color: #F8FAFC !important;
     }
 
-    /* حل مشكلة الحروف المتسربة من القائمة الجانبية في الهاتف */
+    /* حماية القائمة الجانبية من تسرب النصوص على الهاتف */
     [data-testid="stSidebar"] {
         overflow: hidden !important;
     }
@@ -42,23 +41,23 @@ st.markdown(
         display: none !important;
     }
 
-    /* ترويسة الصفحة متجاوبة ونظيفة */
+    /* الشريط الأزرق العلوي (الترويسة) */
     .portal-header {
         background: linear-gradient(135deg, #1B365D 0%, #2A5298 100%);
-        padding: 16px 20px;
+        padding: 18px 24px;
         border-radius: 12px;
         color: white;
-        margin-bottom: 16px;
+        margin-bottom: 18px;
         box-shadow: 0 4px 12px rgba(27, 54, 93, 0.15);
     }
     .portal-title {
-        font-size: 19px;
+        font-size: 21px;
         font-weight: 800;
         margin: 0 0 6px 0;
         color: #FFFFFF;
     }
     .portal-sub {
-        font-size: 12px;
+        font-size: 13px;
         color: #D6E4FF;
         margin: 0;
     }
@@ -94,13 +93,12 @@ st.markdown(
         font-weight: 800;
     }
 
-    /* استجابة خاصة بالهواتف */
     @media (max-width: 768px) {
         .kpi-box {
             flex: 1 1 100% !important;
         }
         .portal-title {
-            font-size: 17px !important;
+            font-size: 18px !important;
         }
         div[data-testid="stDialog"] div[role="dialog"] {
             width: 95vw !important;
@@ -350,7 +348,7 @@ def show_teacher_edit_dialog(ppr_selected):
 
 # ==================== الشريط الجانبي ====================
 with st.sidebar:
-  st.markdown("### 🏛️ خيارات المنظومة")
+  st.markdown("### 🏛️ المديرية الإقليمية بالحوز")
   st.metric("إجمالي الموظفين", f"{len(df):,} فرد")
 
   if st.button("📥 تجهيز ملف Excel للتحميل", use_container_width=True):
@@ -374,20 +372,20 @@ with st.sidebar:
       st.success("تم تحديث البيانات بنجاح!")
       st.rerun()
 
-# ==================== الترويسة الرئيسية ====================
+# ==================== الشريط الأزرق العلوي (الترويسة) ====================
 st.markdown(
     """
     <div class="portal-header">
         <div>
-            <h1 class="portal-title">منظومة تدبير الموارد البشرية</h1>
-            <p class="portal-sub">استعلام المؤسسات والوحدات المدرسية - 2026</p>
+            <h1 class="portal-title">منظومة تدبير الموارد البشرية لمديرية الحوز</h1>
+            <p class="portal-sub">مصلحة الموارد البشرية والتخطيط - الموسم الدراسي 2026</p>
         </div>
     </div>
 """,
     unsafe_allow_html=True,
 )
 
-# ==================== التبويبات ====================
+# ==================== التبويبات الرئيسية ====================
 tab_etab, tab_search, tab_stats, tab_edit = st.tabs([
     "🏫 استعلام المؤسسة",
     "🔍 البحث السريع",
