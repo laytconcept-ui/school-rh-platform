@@ -39,26 +39,43 @@ st.markdown(
         display: none !important;
     }
 
+    /* الشريط الأزرق العلوي (متمركز في الوسط) */
     .portal-header {
         background: linear-gradient(135deg, #1B365D 0%, #2A5298 100%);
-        padding: 18px 24px;
-        border-radius: 12px;
+        padding: 22px 24px;
+        border-radius: 14px;
         color: white;
-        margin-bottom: 18px;
-        box-shadow: 0 4px 12px rgba(27, 54, 93, 0.15);
+        margin-bottom: 22px;
+        box-shadow: 0 4px 14px rgba(27, 54, 93, 0.18);
+        text-align: center !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
     .portal-title {
-        font-size: 21px;
+        font-size: 24px;
         font-weight: 800;
         margin: 0 0 6px 0;
         color: #FFFFFF;
+        text-align: center !important;
     }
     .portal-sub {
-        font-size: 13px;
+        font-size: 14px;
         color: #D6E4FF;
         margin: 0;
+        text-align: center !important;
     }
 
+    /* فئة العناوين المتمركزة في الوسط */
+    .centered-title {
+        text-align: center !important;
+        margin: 10px 0 16px 0 !important;
+        font-weight: 700;
+        color: #1E293B;
+    }
+
+    /* بطاقات المؤشرات الإحصائية */
     .kpi-container {
         display: flex;
         flex-wrap: wrap;
@@ -76,17 +93,20 @@ st.markdown(
         border-top: 1px solid #E2E8F0;
         border-left: 1px solid #E2E8F0;
         border-bottom: 1px solid #E2E8F0;
+        text-align: center !important;
     }
     .kpi-label {
         color: #64748B;
         font-size: 11px;
         font-weight: 600;
         margin-bottom: 3px;
+        text-align: center !important;
     }
     .kpi-num {
         color: #0F172A;
         font-size: 16px;
         font-weight: 800;
+        text-align: center !important;
     }
 
     @media (max-width: 768px) {
@@ -94,7 +114,7 @@ st.markdown(
             flex: 1 1 100% !important;
         }
         .portal-title {
-            font-size: 18px !important;
+            font-size: 19px !important;
         }
         div[data-testid="stDialog"] div[role="dialog"] {
             width: 95vw !important;
@@ -180,13 +200,11 @@ def load_data(source):
 
 
 def export_etab_excel_with_header(df_to_export, etab_code, institution_name):
-  """تصدير ملف إكسيل يحمل الترويسة الرسمية لوزارة التربية الوطنية في السطور الأولى"""
   wb = openpyxl.Workbook()
   ws = wb.active
   ws.title = "لائحة العاملين"
   ws.views.sheetView[0].rightToLeft = True
 
-  # الترويسة الرسمية
   headers_lines = [
       "المملكة المغربية",
       "وزارة التربية الوطنية والتعليم الأولي والرياضة",
@@ -205,7 +223,6 @@ def export_etab_excel_with_header(df_to_export, etab_code, institution_name):
         name="Arial", size=11, bold=True, color="1B365D"
     )
 
-  # كتابة عناوين الأعمدة
   cols = list(df_to_export.columns)
   for c_idx, col_name in enumerate(cols, start=1):
     c = ws.cell(row=7, column=c_idx, value=col_name)
@@ -217,7 +234,6 @@ def export_etab_excel_with_header(df_to_export, etab_code, institution_name):
         horizontal="center", vertical="center"
     )
 
-  # كتابة البيانات
   for r_i, (_, row_data) in enumerate(df_to_export.iterrows(), start=8):
     for c_i, val in enumerate(row_data, start=1):
       cell = ws.cell(row=r_i, column=c_i, value=str(val))
@@ -232,7 +248,6 @@ def export_etab_excel_with_header(df_to_export, etab_code, institution_name):
 
 
 def generate_printable_html(df_to_print, etab_code, institution_name):
-  """توليد وثيقة A4 مهيأة للطباعة المباشرة مع الترويسة الرسمية"""
   table_html = df_to_print.to_html(index=False, classes="print-table")
   html_doc = f"""
   <!DOCTYPE html>
@@ -383,8 +398,9 @@ def show_teacher_edit_dialog(ppr_selected):
   t = df.loc[idx]
 
   st.markdown(
-      f"### 👤 {t.get('NOM_AR', '')} | {t.get('NOM_FR', '')} (رقم التأجير:"
-      f" `{ppr_selected}`)"
+      f"<h3 style='text-align: center;'>👤 {t.get('NOM_AR', '')} |"
+      f" {t.get('NOM_FR', '')} (رقم التأجير: `{ppr_selected}`)</h3>",
+      unsafe_allow_html=True,
   )
 
   with st.form("modal_edit_teacher_form"):
@@ -478,14 +494,12 @@ with st.sidebar:
       st.success("تم تحديث البيانات بنجاح!")
       st.rerun()
 
-# ==================== الشريط الأزرق العلوي (الترويسة) ====================
+# ==================== الشريط الأزرق العلوي (الترويسة في الوسط) ====================
 st.markdown(
     """
     <div class="portal-header">
-        <div>
-            <h1 class="portal-title">منظومة تدبير الموارد البشرية لمديرية الحوز</h1>
-            <p class="portal-sub">وزارة التربية الوطنية والتعليم الأولي والرياضة - مصلحة تدبير الموارد البشرية 2026</p>
-        </div>
+        <h1 class="portal-title">منظومة تدبير الموارد البشرية لمديرية الحوز</h1>
+        <p class="portal-sub">وزارة التربية الوطنية والتعليم الأولي والرياضة - مصلحة تدبير الموارد البشرية 2026</p>
     </div>
 """,
     unsafe_allow_html=True,
@@ -504,7 +518,11 @@ tab_etab, tab_search, tab_stats, tab_edit = st.tabs([
 # -------------------------------------------------------------
 with tab_etab:
   with st.form("etab_filter_form"):
-    st.markdown("##### 📍 تحديد المؤسسة التعليمية بكود المؤسسة (C_ETAB)")
+    st.markdown(
+        "<h4 class='centered-title'>📍 تحديد المؤسسة التعليمية بكود المؤسسة"
+        " (C_ETAB)</h4>",
+        unsafe_allow_html=True,
+    )
     col_c1, col_c2 = st.columns([1, 1])
 
     etab_input = (
@@ -574,7 +592,11 @@ with tab_etab:
           unsafe_allow_html=True,
       )
 
-      st.markdown("#### 🏫 الوحدات المدرسية والفرعيات التابعة:")
+      st.markdown(
+          "<h4 class='centered-title'>🏫 الوحدات المدرسية والفرعيات"
+          " التابعة</h4>",
+          unsafe_allow_html=True,
+      )
 
       sub_units_summary = (
           res_etab.groupby([COL_UNIT_CODE, COL_UNIT_NAME])
@@ -616,8 +638,15 @@ with tab_etab:
         final_display_df = res_etab
 
       st.markdown("---")
-      st.markdown("#### 📋 اللائحة الاسمية للعاملين بالمؤسسة:")
-      st.caption("💡 انقر على سطر أي أستاذ بالجدول لفتح بطاقة التعديل.")
+      st.markdown(
+          "<h4 class='centered-title'>📋 اللائحة الاسمية للعاملين بالمؤسسة</h4>",
+          unsafe_allow_html=True,
+      )
+      st.markdown(
+          "<p style='text-align: center; color: #64748B;'>💡 انقر على سطر أي"
+          " أستاذ بالجدول لفتح بطاقة التعديل.</p>",
+          unsafe_allow_html=True,
+      )
 
       disp_cols = [
           COL_PPR,
@@ -672,7 +701,6 @@ with tab_etab:
       st.markdown("---")
       col_btn1, col_btn2 = st.columns(2)
 
-      # 1. زر تصدير Excel رسمي بالترويسة
       excel_official = export_etab_excel_with_header(
           rendered_df, target_code, institution_name
       )
@@ -686,7 +714,6 @@ with tab_etab:
           use_container_width=True,
       )
 
-      # 2. زر الطباعة الفورية A4
       html_print = generate_printable_html(
           rendered_df, target_code, institution_name
       )
@@ -713,7 +740,11 @@ with tab_etab:
 # -------------------------------------------------------------
 with tab_search:
   with st.form("search_form"):
-    st.markdown("##### 🔎 استعلام بالرقم المالي، الاسم أو البطاقة الوطنية")
+    st.markdown(
+        "<h4 class='centered-title'>🔎 استعلام بالرقم المالي، الاسم أو البطاقة"
+        " الوطنية</h4>",
+        unsafe_allow_html=True,
+    )
     query_val = st.text_input(
         "أدخل رقم التأجير (PPR)، الاسم، أو رقم البطاقة (CIN):",
         placeholder="مثال: 1114650 أو محمد",
@@ -792,7 +823,11 @@ with tab_search:
 # 3. تبويب لوحة الإحصاء
 # -------------------------------------------------------------
 with tab_stats:
-  st.markdown("##### 📈 مؤشرات التوزيع الإجمالي للموارد البشرية")
+  st.markdown(
+      "<h4 class='centered-title'>📈 مؤشرات التوزيع الإجمالي للموارد"
+      " البشرية</h4>",
+      unsafe_allow_html=True,
+  )
 
   total_all = len(df)
   females_all = (
@@ -826,7 +861,10 @@ with tab_stats:
   )
 
   if COL_TASK in df.columns:
-    st.markdown("###### 📊 توزيع المهام الرئيسية:")
+    st.markdown(
+        "<h5 class='centered-title'>📊 توزيع المهام الرئيسية</h5>",
+        unsafe_allow_html=True,
+    )
     top_tasks = df[COL_TASK].value_counts().head(8).reset_index()
     top_tasks.columns = ["المهمة / الإطار", "العدد الإجمالي"]
     st.dataframe(top_tasks, use_container_width=True, hide_index=True)
@@ -835,7 +873,10 @@ with tab_stats:
 # 4. تبويب تعديل سجل موظف بالبحث المباشر
 # -------------------------------------------------------------
 with tab_edit:
-  st.markdown("##### ✏️ تعديل المعطيات الإدارية لموظف")
+  st.markdown(
+      "<h4 class='centered-title'>✏️ تعديل المعطيات الإدارية لموظف</h4>",
+      unsafe_allow_html=True,
+  )
   target_ppr = clean_value(
       st.text_input(
           "أدخل رقم التأجير (PPR):", placeholder="مثال: 1114650"
@@ -857,15 +898,15 @@ with tab_edit:
         u_nom_ar = st.text_input(
             "الاسم الكامل بالعربية:", t_row.get("NOM_AR", "")
         )
-        u_nom_fr = st.text_input("الاسم بالفرنسية:", t_row.get("NOM_FR", ""))
-        u_cin = st.text_input(
+        u_nom_fr = f2.text_input("الاسم بالفرنسية:", t_row.get("NOM_FR", ""))
+        u_cin = f3.text_input(
             "رقم البطاقة الوطنية (CIN):", t_row.get("CIN", "")
         )
-        u_task = st.text_input("المهمة الحالية:", t_row.get(COL_TASK, ""))
-        u_c_etab = st.text_input(
+        u_task = f1.text_input("المهمة الحالية:", t_row.get(COL_TASK, ""))
+        u_c_etab = f1.text_input(
             "كود المؤسسة (C_ETAB):", t_row.get(COL_C_ETAB, "")
         )
-        u_unit_name = st.text_input(
+        u_unit_name = f2.text_input(
             "اسم الوحدة المدرسية:", t_row.get(COL_UNIT_NAME, "")
         )
 
